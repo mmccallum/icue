@@ -39,16 +39,9 @@ void SessionStateChangedHandler(void *context, const CorsairSessionStateChanged 
     // Subscribed for events once connected
     if (CorsairSubscribeForEvents_Fn) {
       CorsairSubscribeForEvents_Fn([](void *ctx, const CorsairEvent *event) {
-        if (event) {
-          // Log all event types to help identify wheel/button events
-          fprintf(stderr, "[EVENT] Received event type: %d\n", event->id);
-          
-          if (event->id == CEI_KeyEvent && event->keyEvent) {
-            fprintf(stderr, "[EVENT] KeyEvent - keyId: %d, isPressed: %d\n", 
-                    (int)event->keyEvent->keyId, event->keyEvent->isPressed);
-            std::lock_guard<std::mutex> lock(g_queueMutex);
-            g_eventQueue.push(*event);
-          }
+        if (event && event->id == CEI_KeyEvent && event->keyEvent) {
+          std::lock_guard<std::mutex> lock(g_queueMutex);
+          g_eventQueue.push(*event);
         }
       }, NULL);
       g_subscribed = true;
@@ -60,14 +53,9 @@ void SessionStateChangedHandler(void *context, const CorsairSessionStateChanged 
 Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
-  fprintf(stderr, "[DEBUG] LoadSDK called\n");
-  
   if (g_iCueModule != NULL) {
-    fprintf(stderr, "[DEBUG] SDK already loaded\n");
     return Napi::Boolean::New(env, true);
   }
-
-  fprintf(stderr, "[DEBUG] Starting SDK search\n");
   
   // Try common iCUE SDK library paths
   char searchPaths[15][MAX_PATH];
@@ -133,7 +121,6 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
           }
           strncpy_s(searchPaths[0], MAX_PATH, moduleDir, _TRUNCATE);
           pathCount++;
-          fprintf(stderr, "[DEBUG] Module directory path: %s\n", moduleDir);
         }
       }
     }
@@ -142,10 +129,8 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   char errorMsg[512] = "";
 
   for (int i = 0; i < pathCount && i < 15; i++) {
-    fprintf(stderr, "[DEBUG] Trying to load: %s\n", searchPaths[i]);
     g_iCueModule = LoadLibraryA(searchPaths[i]);
     if (g_iCueModule != NULL) {
-      fprintf(stderr, "[DEBUG] Successfully loaded DLL from: %s\n", searchPaths[i]);
       
       // Load function pointers
       CorsairConnect_Fn = (CorsairConnectFn)GetProcAddress(g_iCueModule, "CorsairConnect");
@@ -156,19 +141,11 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
       CorsairGetDevices_Fn = (CorsairGetDevicesFn)GetProcAddress(g_iCueModule, "CorsairGetDevices");
       CorsairRequestControl_Fn = (CorsairRequestControlFn)GetProcAddress(g_iCueModule, "CorsairRequestControl");
 
-      fprintf(stderr, "[DEBUG] Function pointers: Connect=%p, SetColors=%p\n", 
-              CorsairConnect_Fn, CorsairSetLedColors_Fn);
-
       if (CorsairConnect_Fn && CorsairSetLedColors_Fn) {
-        fprintf(stderr, "[DEBUG] SDK loaded successfully!\n");
         return Napi::Boolean::New(env, true);
       }
-      fprintf(stderr, "[DEBUG] Failed to load function pointers from: %s\n", searchPaths[i]);
       FreeLibrary(g_iCueModule);
       g_iCueModule = NULL;
-    } else {
-      DWORD err = GetLastError();
-      fprintf(stderr, "[DEBUG] Failed to load from %s (error: %d)\n", searchPaths[i], err);
     }
   }
 
