@@ -62,8 +62,12 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   }
 
   // Try common iCUE SDK library paths
-  const char *paths[] = {
-    // Project directory (installed by setup script)
+  char modulePaths[10][MAX_PATH];
+  int pathCount = 0;
+  
+  // Add DLL search paths
+  const char *staticPaths[] = {
+    // npm node_modules location (when installed as package)
     "iCUESDK.dll",
     ".\\iCUESDK.dll",
     "build\\Release\\iCUESDK.dll",
@@ -78,13 +82,21 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
     "C:\\Program Files\\Corsair\\CORSAIR iCUE\\system\\iCUESDK.dll",
   };
 
+  // Copy static paths
+  for (size_t i = 0; i < sizeof(staticPaths) / sizeof(staticPaths[0]) && pathCount < 10; i++) {
+    strncpy_s(modulePaths[pathCount], MAX_PATH, staticPaths[i], _TRUNCATE);
+    pathCount++;
+  }
+
+  const char **paths = (const char **)modulePaths;
+
   char errorMsg[512] = "";
 
-  for (const char *path : paths) {
-    fprintf(stderr, "[DEBUG] Trying to load: %s\n", path);
-    g_iCueModule = LoadLibraryA(path);
+  for (int i = 0; i < pathCount; i++) {
+    fprintf(stderr, "[DEBUG] Trying to load: %s\n", paths[i]);
+    g_iCueModule = LoadLibraryA(paths[i]);
     if (g_iCueModule != NULL) {
-      fprintf(stderr, "[DEBUG] Successfully loaded DLL from: %s\n", path);
+      fprintf(stderr, "[DEBUG] Successfully loaded DLL from: %s\n", paths[i]);
       
       // Load function pointers
       CorsairConnect_Fn = (CorsairConnectFn)GetProcAddress(g_iCueModule, "CorsairConnect");
@@ -102,12 +114,12 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
         fprintf(stderr, "[DEBUG] SDK loaded successfully!\n");
         return Napi::Boolean::New(env, true);
       }
-      fprintf(stderr, "[DEBUG] Failed to load function pointers from: %s\n", path);
+      fprintf(stderr, "[DEBUG] Failed to load function pointers from: %s\n", paths[i]);
       FreeLibrary(g_iCueModule);
       g_iCueModule = NULL;
     } else {
       DWORD err = GetLastError();
-      fprintf(stderr, "[DEBUG] Failed to load from %s (error: %d)\n", path, err);
+      fprintf(stderr, "[DEBUG] Failed to load from %s (error: %d)\n", paths[i], err);
     }
   }
 
