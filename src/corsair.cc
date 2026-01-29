@@ -60,10 +60,15 @@ void SessionStateChangedHandler(void *context, const CorsairSessionStateChanged 
 Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   
+  fprintf(stderr, "[DEBUG] LoadSDK called\n");
+  
   if (g_iCueModule != NULL) {
+    fprintf(stderr, "[DEBUG] SDK already loaded\n");
     return Napi::Boolean::New(env, true);
   }
 
+  fprintf(stderr, "[DEBUG] Starting SDK search\n");
+  
   // Try common iCUE SDK library paths
   char searchPaths[15][MAX_PATH];
   memset(searchPaths, 0, sizeof(searchPaths));
@@ -110,8 +115,17 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
         size_t dirLen = lastSlash - modulePath;
         if (dirLen > 0 && dirLen < MAX_PATH - 20) {  // Leave room for filename
           strncpy_s(moduleDir, MAX_PATH, modulePath, dirLen);
-          // Append iCUESDK.dll to the copied directory
-          strcat_s(moduleDir, MAX_PATH, "\\iCUESDK.dll");
+          
+          // For prebuilt binaries in prebuilds/win32-x64/, go up two directories
+          // to reach the module root where iCUESDK.dll is placed
+          char *prebuild = strstr(moduleDir, "prebuilds");
+          if (prebuild) {
+            // Truncate at "prebuilds" to get module root
+            *prebuild = '\0';
+          }
+          
+          // Append iCUESDK.dll to the module directory
+          strcat_s(moduleDir, MAX_PATH, "iCUESDK.dll");
           
           // Insert this as the FIRST path by shifting others down
           for (int i = pathCount; i > 0 && i < 15; i--) {
