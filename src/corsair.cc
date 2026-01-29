@@ -69,50 +69,54 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   memset(searchPaths, 0, sizeof(searchPaths));
   int pathCount = 0;
   
-  // Get the directory of this DLL (the module itself)
-  char moduleDllPath[MAX_PATH];
-  char dirPath[MAX_PATH];
-  memset(moduleDllPath, 0, MAX_PATH);
-  memset(dirPath, 0, MAX_PATH);
-  HMODULE thisModule = NULL;
-  
-  if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                        (LPCSTR)&LoadSDK, &thisModule) && thisModule) {
-    if (GetModuleFileNameA(thisModule, moduleDllPath, MAX_PATH) > 0) {
-      // Strip the long path prefix if present (\\?\C:\...)
-      const char *pathStr = moduleDllPath;
-      if (strncmp(moduleDllPath, "\\\\?\\", 4) == 0) {
-        pathStr = moduleDllPath + 4;
-      }
-      
-      // Remove filename, keep just the directory
-      strncpy_s(dirPath, MAX_PATH, pathStr, _TRUNCATE);
-      PathRemoveFileSpecA(dirPath);
-      
-      // Append iCUESDK.dll to the module directory
-      sprintf_s(searchPaths[pathCount], MAX_PATH, "%s\\iCUESDK.dll", dirPath);
-      fprintf(stderr, "[DEBUG] Module directory DLL: %s\n", searchPaths[pathCount]);
-      pathCount++;
-    }
-  }
-  
-  // Add DLL search paths
-  const char *staticPaths[] = {
+  // Try relative paths first (for npm installations)
+  const char *relativePaths[] = {
     "iCUESDK.dll",
     ".\\iCUESDK.dll",
     "build\\Release\\iCUESDK.dll",
+    // iCUE 5.x installation paths
     "C:\\Program Files\\Corsair\\SDK\\iCUESDK.dll",
     "C:\\Program Files\\Corsair\\iCUESDK.dll",
     "C:\\Program Files\\Corsair\\Corsair iCUE5 Software\\iCUESDK.dll",
     "C:\\Program Files (x86)\\Corsair\\SDK\\iCUESDK.dll",
     "C:\\Program Files (x86)\\Corsair\\iCUESDK.dll",
+    // Legacy iCUE 4.x (backward compatibility)
     "C:\\Program Files\\Corsair\\CORSAIR iCUE 4\\system\\iCUESDK.dll",
     "C:\\Program Files\\Corsair\\CORSAIR iCUE\\system\\iCUESDK.dll",
   };
   
-  for (size_t i = 0; i < sizeof(staticPaths) / sizeof(staticPaths[0]) && pathCount < 15; i++) {
-    strncpy_s(searchPaths[pathCount], MAX_PATH, staticPaths[i], _TRUNCATE);
+  // Add all static paths
+  for (size_t i = 0; i < sizeof(relativePaths) / sizeof(relativePaths[0]) && pathCount < 15; i++) {
+    strncpy_s(searchPaths[pathCount], MAX_PATH, relativePaths[i], _TRUNCATE);
     pathCount++;
+  }
+
+  // Try to get module directory and add it as first priority
+  // This is done AFTER adding standard paths to avoid crashing on invalid paths
+  HMODULE thisModule = NULL;
+  if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                        (LPCSTR)&LoadSDK, &thisModule) && thisModule) {
+    char modulePath[MAX_PATH];
+    memset(modulePath, 0, MAX_PATH);
+    if (GetModuleFileNameA(thisModule, modulePath, MAX_PATH) > 0 && strlen(modulePath) > 0) {
+      // Try to extract directory
+      char *lastSlash = strrchr(modulePath, '\\');
+      if (!lastSlash) lastSlash = strrchr(modulePath, '/');
+      
+      if (lastSlash) {
+        // Null terminate at the slash to get just the directory
+        *lastSlash = '\0';
+        // Append iCUESDK.dll
+        sprintf_s(modulePath, MAX_PATH, "%s\\iCUESDK.dll", modulePath);
+        // Insert this as the FIRST path by shifting others down
+        for (int i = pathCount; i > 0 && i < 15; i--) {
+          strncpy_s(searchPaths[i], MAX_PATH, searchPaths[i-1], _TRUNCATE);
+        }
+        strncpy_s(searchPaths[0], MAX_PATH, modulePath, _TRUNCATE);
+        pathCount++;
+        fprintf(stderr, "[DEBUG] Module directory path: %s\n", modulePath);
+      }
+    }
   }
 
   char errorMsg[512] = "";
