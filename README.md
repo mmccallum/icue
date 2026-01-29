@@ -12,44 +12,44 @@ A native Node.js module that provides direct access to the Corsair iCUE SDK, all
 
 ## Requirements
 
-- **Windows 11** (or Windows 7/8/10)
+- **Windows 11 (x64)** (or Windows 7/8/10 x64)
 - **Node.js 14.0.0+**
-- **Visual Studio Build Tools 2022** (or Community Edition)
 - **Corsair iCUE software** installed and running
 - **A supported Corsair keyboard** (with RGB and G keys)
 - **Administrator privileges** (required by iCUE SDK)
 
+Note: Prebuilt binaries are included for Windows x64. Build tools are only needed for development or other platforms.
+
 ## Installation
 
-### Step 1: Install Visual Studio Build Tools
+### Windows x64 (one-step, no build tools needed)
+
+Prebuilt binaries are included! Just install:
+
+```bash
+npm install corsair-icue
+```
+
+The module will automatically download the Corsair SDK on first install.
+
+### Development or other platforms
+
+If building from source, install Visual Studio Build Tools:
 
 ```powershell
 winget install --id Microsoft.VisualStudio.2022.BuildTools
 ```
 
 When prompted, select:
-- C++ development workload
+- C++ development workload  
 - Windows SDK
 
-### Step 2: Clone/Set up this module
+Then clone and build:
 
 ```bash
-cd your-project
-npm install corsair-icue
-```
-
-Or for development:
-
-```bash
-git clone <repo>
-cd corsair-icue
+git clone https://github.com/mmccallum/icue
+cd icue
 npm install
-```
-
-### Step 3: Build the native module
-
-```bash
-npm run build
 ```
 
 ## Quick Start
