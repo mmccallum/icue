@@ -83,13 +83,24 @@ main();
 
 ### `CorsairKeyboard` Class
 
-#### `async initialize()`
+#### `async initialize(options)`
 Connects to the first available Corsair keyboard.
+
+**Parameters:**
+- `options` (object, optional)
+  - `exclusiveControl` (boolean, default `false`): request exclusive lighting control.
+    - `false` (shared mode): iCUE continues to control normal keyboard lighting.
+    - `true` (exclusive mode): your app takes over lighting; non-controlled keys may go dark.
 
 **Returns:** `Promise<boolean>` - true if successful
 
 ```javascript
+// Shared mode (default)
 const connected = await keyboard.initialize();
+
+// Exclusive lighting control
+const connectedExclusive = await keyboard.initialize({ exclusiveControl: true });
+
 if (!connected) {
   console.error('Could not connect to keyboard');
 }
@@ -166,6 +177,12 @@ Currently, the module supports the following keys with full LED control:
 - **Function Keys**: Esc, F1, F2, F3 (more can be added)
 
 Additional keyboard keys can be added by referencing the iCUE SDK LED ID documentation.
+
+## Event Limitations (Important)
+
+- The iCUE SDK only reports **G/M/S macro key events** via `CorsairKeyEvent`.
+- **Top buttons and the control wheel on the K100 do not emit SDK events** unless you map them in iCUE to macro keys.
+- If you need those controls, remap them to G keys in iCUE or use a separate Windows Raw Input listener.
 
 ## Examples
 
