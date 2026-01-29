@@ -65,56 +65,59 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   }
 
   // Try common iCUE SDK library paths
-  char modulePaths[15][MAX_PATH];
+  const char *searchPaths[15];
   int pathCount = 0;
   
   // Get the directory of this DLL (the module itself)
-  HMODULE thisModule = NULL;
-  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                    (LPCSTR)&LoadSDK, &thisModule);
-  
   char moduleDllPath[MAX_PATH];
-  if (thisModule) {
-    GetModuleFileNameA(thisModule, moduleDllPath, MAX_PATH);
-    // Remove filename, keep just the directory
-    PathRemoveFileSpecA(moduleDllPath);
-    // Add iCUESDK.dll to the module directory
-    strcat_s(moduleDllPath, MAX_PATH, "\\iCUESDK.dll");
-    strncpy_s(modulePaths[pathCount++], MAX_PATH, moduleDllPath, _TRUNCATE);
+  char dirPath[MAX_PATH];
+  char fullPath[MAX_PATH];
+  memset(moduleDllPath, 0, MAX_PATH);
+  memset(dirPath, 0, MAX_PATH);
+  memset(fullPath, 0, MAX_PATH);
+  HMODULE thisModule = NULL;
+  
+  if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                        (LPCSTR)&LoadSDK, &thisModule) && thisModule) {
+    if (GetModuleFileNameA(thisModule, moduleDllPath, MAX_PATH) > 0) {
+      // Strip the long path prefix if present (\\?\C:\...)
+      const char *pathStr = moduleDllPath;
+      if (strncmp(moduleDllPath, "\\\\?\\", 4) == 0) {
+        pathStr = moduleDllPath + 4;
+      }
+      
+      // Remove filename, keep just the directory
+      strncpy_s(dirPath, MAX_PATH, pathStr, _TRUNCATE);
+      PathRemoveFileSpecA(dirPath);
+      
+      // Append iCUESDK.dll to the module directory
+      sprintf_s(fullPath, MAX_PATH, "%s\\iCUESDK.dll", dirPath);
+      searchPaths[pathCount++] = fullPath;
+      fprintf(stderr, "[DEBUG] Module directory DLL: %s\n", fullPath);
+    }
   }
   
-  // Add DLL search paths
-  const char *staticPaths[] = {
-    // npm node_modules location (when installed as package)
-    "iCUESDK.dll",
-    ".\\iCUESDK.dll",
-    "build\\Release\\iCUESDK.dll",
-    // iCUE 5.x installation paths
-    "C:\\Program Files\\Corsair\\SDK\\iCUESDK.dll",
-    "C:\\Program Files\\Corsair\\iCUESDK.dll",
-    "C:\\Program Files\\Corsair\\Corsair iCUE5 Software\\iCUESDK.dll",
-    "C:\\Program Files (x86)\\Corsair\\SDK\\iCUESDK.dll",
-    "C:\\Program Files (x86)\\Corsair\\iCUESDK.dll",
-    // Legacy iCUE 4.x (backward compatibility)
-    "C:\\Program Files\\Corsair\\CORSAIR iCUE 4\\system\\iCUESDK.dll",
-    "C:\\Program Files\\Corsair\\CORSAIR iCUE\\system\\iCUESDK.dll",
-  };
-
-  // Copy static paths
-  for (size_t i = 0; i < sizeof(staticPaths) / sizeof(staticPaths[0]) && pathCount < 15; i++) {
-    strncpy_s(modulePaths[pathCount], MAX_PATH, staticPaths[i], _TRUNCATE);
-    pathCount++;
-  }
-
-  const char **paths = (const char **)modulePaths;
+  // Add DLL search paths (static, in program memory)
+  // Note: These are string literals and safe to reference
+  searchPaths[pathCount++] = "iCUESDK.dll";
+  searchPaths[pathCount++] = ".\\iCUESDK.dll";
+  searchPaths[pathCount++] = "build\\Release\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\SDK\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\Corsair iCUE5 Software\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files (x86)\\Corsair\\SDK\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files (x86)\\Corsair\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\CORSAIR iCUE 4\\system\\iCUESDK.dll";
+  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\CORSAIR iCUE\\system\\iCUESDK.dll";
 
   char errorMsg[512] = "";
 
-  for (int i = 0; i < pathCount; i++) {
-    fprintf(stderr, "[DEBUG] Trying to load: %s\n", paths[i]);
-    g_iCueModule = LoadLibraryA(paths[i]);
+  for (int i = 0; i < pathCount && i < 15; i++) {
+    if (!searchPaths[i]) continue;
+    fprintf(stderr, "[DEBUG] Trying to load: %s\n", searchPaths[i]);
+    g_iCueModule = LoadLibraryA(searchPaths[i]);
     if (g_iCueModule != NULL) {
-      fprintf(stderr, "[DEBUG] Successfully loaded DLL from: %s\n", paths[i]);
+      fprintf(stderr, "[DEBUG] Successfully loaded DLL from: %s\n", searchPaths[i]);
       
       // Load function pointers
       CorsairConnect_Fn = (CorsairConnectFn)GetProcAddress(g_iCueModule, "CorsairConnect");
@@ -132,12 +135,12 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
         fprintf(stderr, "[DEBUG] SDK loaded successfully!\n");
         return Napi::Boolean::New(env, true);
       }
-      fprintf(stderr, "[DEBUG] Failed to load function pointers from: %s\n", paths[i]);
+      fprintf(stderr, "[DEBUG] Failed to load function pointers from: %s\n", searchPaths[i]);
       FreeLibrary(g_iCueModule);
       g_iCueModule = NULL;
     } else {
       DWORD err = GetLastError();
-      fprintf(stderr, "[DEBUG] Failed to load from %s (error: %d)\n", paths[i], err);
+      fprintf(stderr, "[DEBUG] Failed to load from %s (error: %d)\n", searchPaths[i], err);
     }
   }
 
