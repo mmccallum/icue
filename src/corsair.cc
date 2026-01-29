@@ -65,16 +65,15 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   }
 
   // Try common iCUE SDK library paths
-  const char *searchPaths[15];
+  char searchPaths[15][MAX_PATH];
+  memset(searchPaths, 0, sizeof(searchPaths));
   int pathCount = 0;
   
   // Get the directory of this DLL (the module itself)
   char moduleDllPath[MAX_PATH];
   char dirPath[MAX_PATH];
-  char fullPath[MAX_PATH];
   memset(moduleDllPath, 0, MAX_PATH);
   memset(dirPath, 0, MAX_PATH);
-  memset(fullPath, 0, MAX_PATH);
   HMODULE thisModule = NULL;
   
   if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
@@ -91,29 +90,34 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
       PathRemoveFileSpecA(dirPath);
       
       // Append iCUESDK.dll to the module directory
-      sprintf_s(fullPath, MAX_PATH, "%s\\iCUESDK.dll", dirPath);
-      searchPaths[pathCount++] = fullPath;
-      fprintf(stderr, "[DEBUG] Module directory DLL: %s\n", fullPath);
+      sprintf_s(searchPaths[pathCount], MAX_PATH, "%s\\iCUESDK.dll", dirPath);
+      fprintf(stderr, "[DEBUG] Module directory DLL: %s\n", searchPaths[pathCount]);
+      pathCount++;
     }
   }
   
-  // Add DLL search paths (static, in program memory)
-  // Note: These are string literals and safe to reference
-  searchPaths[pathCount++] = "iCUESDK.dll";
-  searchPaths[pathCount++] = ".\\iCUESDK.dll";
-  searchPaths[pathCount++] = "build\\Release\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\SDK\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\Corsair iCUE5 Software\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files (x86)\\Corsair\\SDK\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files (x86)\\Corsair\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\CORSAIR iCUE 4\\system\\iCUESDK.dll";
-  searchPaths[pathCount++] = "C:\\Program Files\\Corsair\\CORSAIR iCUE\\system\\iCUESDK.dll";
+  // Add DLL search paths
+  const char *staticPaths[] = {
+    "iCUESDK.dll",
+    ".\\iCUESDK.dll",
+    "build\\Release\\iCUESDK.dll",
+    "C:\\Program Files\\Corsair\\SDK\\iCUESDK.dll",
+    "C:\\Program Files\\Corsair\\iCUESDK.dll",
+    "C:\\Program Files\\Corsair\\Corsair iCUE5 Software\\iCUESDK.dll",
+    "C:\\Program Files (x86)\\Corsair\\SDK\\iCUESDK.dll",
+    "C:\\Program Files (x86)\\Corsair\\iCUESDK.dll",
+    "C:\\Program Files\\Corsair\\CORSAIR iCUE 4\\system\\iCUESDK.dll",
+    "C:\\Program Files\\Corsair\\CORSAIR iCUE\\system\\iCUESDK.dll",
+  };
+  
+  for (size_t i = 0; i < sizeof(staticPaths) / sizeof(staticPaths[0]) && pathCount < 15; i++) {
+    strncpy_s(searchPaths[pathCount], MAX_PATH, staticPaths[i], _TRUNCATE);
+    pathCount++;
+  }
 
   char errorMsg[512] = "";
 
   for (int i = 0; i < pathCount && i < 15; i++) {
-    if (!searchPaths[i]) continue;
     fprintf(stderr, "[DEBUG] Trying to load: %s\n", searchPaths[i]);
     g_iCueModule = LoadLibraryA(searchPaths[i]);
     if (g_iCueModule != NULL) {
