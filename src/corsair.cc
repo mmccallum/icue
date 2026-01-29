@@ -97,24 +97,30 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
                         (LPCSTR)&LoadSDK, &thisModule) && thisModule) {
     char modulePath[MAX_PATH];
+    char moduleDir[MAX_PATH];
     memset(modulePath, 0, MAX_PATH);
+    memset(moduleDir, 0, MAX_PATH);
     if (GetModuleFileNameA(thisModule, modulePath, MAX_PATH) > 0 && strlen(modulePath) > 0) {
       // Try to extract directory
       char *lastSlash = strrchr(modulePath, '\\');
       if (!lastSlash) lastSlash = strrchr(modulePath, '/');
       
       if (lastSlash) {
-        // Null terminate at the slash to get just the directory
-        *lastSlash = '\0';
-        // Append iCUESDK.dll
-        sprintf_s(modulePath, MAX_PATH, "%s\\iCUESDK.dll", modulePath);
-        // Insert this as the FIRST path by shifting others down
-        for (int i = pathCount; i > 0 && i < 15; i--) {
-          strncpy_s(searchPaths[i], MAX_PATH, searchPaths[i-1], _TRUNCATE);
+        // Copy up to the last slash
+        size_t dirLen = lastSlash - modulePath;
+        if (dirLen > 0 && dirLen < MAX_PATH - 20) {  // Leave room for filename
+          strncpy_s(moduleDir, MAX_PATH, modulePath, dirLen);
+          // Append iCUESDK.dll to the copied directory
+          strcat_s(moduleDir, MAX_PATH, "\\iCUESDK.dll");
+          
+          // Insert this as the FIRST path by shifting others down
+          for (int i = pathCount; i > 0 && i < 15; i--) {
+            strncpy_s(searchPaths[i], MAX_PATH, searchPaths[i-1], _TRUNCATE);
+          }
+          strncpy_s(searchPaths[0], MAX_PATH, moduleDir, _TRUNCATE);
+          pathCount++;
+          fprintf(stderr, "[DEBUG] Module directory path: %s\n", moduleDir);
         }
-        strncpy_s(searchPaths[0], MAX_PATH, modulePath, _TRUNCATE);
-        pathCount++;
-        fprintf(stderr, "[DEBUG] Module directory path: %s\n", modulePath);
       }
     }
   }
