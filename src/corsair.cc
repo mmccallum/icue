@@ -4,7 +4,10 @@
 #include <thread>
 #include <queue>
 #include <mutex>
+#include <shlwapi.h>
 #include "iCUESDK.h"
+
+#pragma comment(lib, "shlwapi.lib")
 
 // Global state
 static HMODULE g_iCueModule = NULL;
@@ -62,8 +65,23 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   }
 
   // Try common iCUE SDK library paths
-  char modulePaths[10][MAX_PATH];
+  char modulePaths[15][MAX_PATH];
   int pathCount = 0;
+  
+  // Get the directory of this DLL (the module itself)
+  HMODULE thisModule = NULL;
+  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                    (LPCSTR)&LoadSDK, &thisModule);
+  
+  char moduleDllPath[MAX_PATH];
+  if (thisModule) {
+    GetModuleFileNameA(thisModule, moduleDllPath, MAX_PATH);
+    // Remove filename, keep just the directory
+    PathRemoveFileSpecA(moduleDllPath);
+    // Add iCUESDK.dll to the module directory
+    strcat_s(moduleDllPath, MAX_PATH, "\\iCUESDK.dll");
+    strncpy_s(modulePaths[pathCount++], MAX_PATH, moduleDllPath, _TRUNCATE);
+  }
   
   // Add DLL search paths
   const char *staticPaths[] = {
@@ -83,7 +101,7 @@ Napi::Boolean LoadSDK(const Napi::CallbackInfo& info) {
   };
 
   // Copy static paths
-  for (size_t i = 0; i < sizeof(staticPaths) / sizeof(staticPaths[0]) && pathCount < 10; i++) {
+  for (size_t i = 0; i < sizeof(staticPaths) / sizeof(staticPaths[0]) && pathCount < 15; i++) {
     strncpy_s(modulePaths[pathCount], MAX_PATH, staticPaths[i], _TRUNCATE);
     pathCount++;
   }
