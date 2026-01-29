@@ -3,7 +3,7 @@
  * High-level interface for controlling Corsair RGB keyboards
  */
 
-const binding = require('./build/Release/corsair.node');
+const binding = require('node-gyp-build')(__dirname);
 const EventEmitter = require('events');
 
 class CorsairKeyboard extends EventEmitter {

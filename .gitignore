@@ -1,12 +1,12 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 
 # Build outputs
 build/
 dist/
 *.node
+!prebuilds/**/*.node
 
 # SDK downloads
 sdk.zip

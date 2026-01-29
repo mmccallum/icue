@@ -145,6 +145,8 @@ function updateCorsairCC() {
 
 async function main() {
   try {
+    const skipBuild = process.argv.includes('--no-build');
+
     // 1. Download SDK
     console.log(`\n📦 Step 1: Download Corsair iCUE SDK v${SDK_VERSION}`);
     if (!fs.existsSync(TEMP_FILE)) {
@@ -175,11 +177,15 @@ async function main() {
     // 4. Update C++ source
     console.log(`\n📝 Step 4: Update source code paths`);
     updateCorsairCC();
-    
-    // 5. Rebuild
-    console.log(`\n🔨 Step 5: Rebuild native module`);
-    console.log('Running: npm run build\n');
-    execSync('npm run build', { stdio: 'inherit' });
+
+    if (!skipBuild) {
+      // 5. Rebuild
+      console.log(`\n🔨 Step 5: Rebuild native module`);
+      console.log('Running: npm run build\n');
+      execSync('npm run build', { stdio: 'inherit' });
+    } else {
+      console.log(`\n⏭️  Skipping native build (--no-build)`);
+    }
     
     console.log('\n✅ Setup complete! 🎉\n');
     console.log('Next steps:');

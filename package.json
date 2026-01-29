@@ -9,14 +9,16 @@
     "src/",
     "binding.gyp",
     "scripts/",
+    "prebuilds/",
     "iCUESDK.dll",
     "README.md"
   ],
   "scripts": {
-    "install": "node scripts/setup-sdk.js && node-gyp rebuild",
+    "install": "node scripts/setup-sdk.js --no-build",
     "build": "node-gyp rebuild",
     "clean": "node-gyp clean",
-    "setup": "node scripts/setup-sdk.js"
+    "setup": "node scripts/setup-sdk.js",
+    "prebuild": "prebuildify --napi --strip"
   },
   "keywords": [
     "corsair",
@@ -27,9 +29,13 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "node-gyp-build": "^4.8.4"
+  },
   "devDependencies": {
     "node-addon-api": "^8.5.0",
-    "node-gyp": "^10.3.1"
+    "node-gyp": "^10.3.1",
+    "prebuildify": "^6.0.1"
   },
   "engines": {
     "node": ">=14.0.0"
